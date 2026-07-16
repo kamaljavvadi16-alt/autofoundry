@@ -66,6 +66,7 @@ export default function App() {
 
 function TopBar({ state }: { state: State }) {
   const d = state.daemon;
+  const boosted = state.settings.boost_until > Date.now();
   return (
     <div className="topbar">
       <h1>⚒ AutoFoundry</h1>
@@ -73,6 +74,23 @@ function TopBar({ state }: { state: State }) {
         <span className="dot" /> daemon {d.running ? 'running' : 'off'}
       </span>
       <div className="spacer" />
+      {boosted ? (
+        <button
+          style={{ borderColor: 'var(--good)', color: 'var(--good)' }}
+          title="Working immediately, ignoring your activity. Click to go back to polite mode."
+          onClick={() => void post('/api/control', { action: 'boost_off' })}
+        >
+          ⚡ Working now — stop
+        </button>
+      ) : (
+        <button
+          style={{ borderColor: 'var(--good)', color: 'var(--good)' }}
+          title="Skip the inactivity wait and start on the queue right away (budgets still apply)."
+          onClick={() => void post('/api/control', { action: 'run_now' })}
+        >
+          ▶ Start now
+        </button>
+      )}
       {d.running ? (
         <button onClick={() => void post('/api/control', { action: 'daemon_stop' })}>Stop daemon</button>
       ) : (
@@ -117,9 +135,16 @@ function Banner({ state }: { state: State }) {
         🛡 <strong>Holding back:</strong>&nbsp;{verdict.reason}
       </div>
     );
+  const boosted = settings.boost_until > Date.now();
   return (
     <div className="banner clear">
       ✅ <strong>Clear to run.</strong>&nbsp;
+      {boosted && (
+        <>
+          <strong>⚡ Start-now override active until {new Date(settings.boost_until).toLocaleTimeString()}.</strong>
+          &nbsp;
+        </>
+      )}
       {daemon.currentTask ? `Working on task #${daemon.currentTask.id}.` : daemon.running ? 'Waiting for tasks.' : 'Daemon is off — start it to process the queue.'}
     </div>
   );

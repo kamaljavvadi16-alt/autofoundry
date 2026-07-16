@@ -293,6 +293,24 @@ program
   });
 
 program
+  .command('now')
+  .description('Start working immediately, ignoring your recent activity (budgets still apply)')
+  .argument('[hours]', 'how long the override lasts; 0 turns it off', '4')
+  .action((hours: string) => {
+    const h = Number(hours);
+    if (h <= 0) {
+      setSetting('boost_until', '0');
+      logEvent('boost_off', 'via CLI');
+      console.log('start-now override off — normal activity backoff applies again');
+      return;
+    }
+    const until = Date.now() + h * 60 * 60 * 1000;
+    setSetting('boost_until', String(until));
+    logEvent('boost_on', `start now (${h}h) via CLI`);
+    console.log(`working immediately until ${new Date(until).toLocaleTimeString()} — make sure the daemon is running`);
+  });
+
+program
   .command('pause')
   .description('Pause the queue (finishes nothing new; current task completes)')
   .action(() => {

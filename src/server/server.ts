@@ -105,6 +105,18 @@ export function startServer(port: number, autoStartDaemon: boolean): void {
       case 'daemon_stop':
         daemon.stop();
         break;
+      case 'run_now':
+        setSetting('boost_until', String(Date.now() + 4 * 60 * 60 * 1000));
+        setSetting('paused', '0');
+        setSetting('stopped', '0');
+        daemon.start();
+        daemon.poke();
+        logEvent('boost_on', 'start now (4h) via dashboard');
+        break;
+      case 'boost_off':
+        setSetting('boost_until', '0');
+        logEvent('boost_off', 'via dashboard');
+        break;
       default:
         res.status(400).json({ error: `unknown action: ${action}` });
         return;
@@ -259,6 +271,7 @@ function buildState(daemon: Daemon) {
       window_cap_usd: Number(getSetting('window_cap_usd')),
       activity_backoff_min: Number(getSetting('activity_backoff_min')),
       observed_window_usd: getSetting('observed_window_usd') ? Number(getSetting('observed_window_usd')) : null,
+      boost_until: Number(getSetting('boost_until') ?? 0),
     },
     daemon: {
       running: daemon.running,

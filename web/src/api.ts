@@ -26,6 +26,7 @@ export interface State {
     window_cap_usd: number;
     activity_backoff_min: number;
     observed_window_usd: number | null;
+    boost_until: number;
   };
   daemon: {
     running: boolean;

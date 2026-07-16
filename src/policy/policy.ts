@@ -32,8 +32,11 @@ export function canRunNow(snapshot?: UsageSnapshot): PolicyVerdict {
     };
   }
 
+  // "Start now" boost: the user explicitly told us to work despite their own
+  // activity. Budgets, pause, stop, and cooldown all still apply.
+  const boosted = num('boost_until', 0) > snap.generatedAt;
   const backoffMin = num('activity_backoff_min', 30);
-  if (snap.lastUserActivityAt !== null) {
+  if (!boosted && snap.lastUserActivityAt !== null) {
     const idleMin = (snap.generatedAt - snap.lastUserActivityAt) / 60_000;
     if (idleMin < backoffMin) {
       return {
