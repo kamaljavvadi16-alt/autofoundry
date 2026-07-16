@@ -5,6 +5,7 @@ import {
   fmtUsd,
   get,
   post,
+  postJson,
   type EventRow,
   type LiveTick,
   type ProjectRow,
@@ -48,6 +49,7 @@ export default function App() {
       {state.daemon.currentTask && <LivePanel state={state} live={live} />}
       <div className="columns">
         <div>
+          <GoForm />
           <ReviewQueue tasks={tasks} />
           <TaskTable tasks={tasks} />
           <EnqueueForm />
@@ -223,6 +225,51 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="stat">
       <div className="label">{label}</div>
       <div className="value">{value}</div>
+    </div>
+  );
+}
+
+function GoForm() {
+  const ideaRef = useRef<HTMLTextAreaElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  return (
+    <div className="card" style={{ borderColor: 'var(--blue)' }}>
+      <h2>🚀 New product idea — fire and forget</h2>
+      <form
+        className="enqueue"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const idea = ideaRef.current?.value.trim();
+          if (!idea || idea.length < 10) {
+            setMsg('Describe the idea in at least a few words.');
+            return;
+          }
+          setBusy(true);
+          setMsg(null);
+          void postJson<{ name: string }>('/api/go', { idea })
+            .then(({ name }) => {
+              if (ideaRef.current) ideaRef.current.value = '';
+              setMsg(
+                `"${name}" is on autopilot. It will plan, build, and package itself — check the Projects table and the review queue. You can walk away now.`
+              );
+            })
+            .catch((err: Error) => setMsg(err.message))
+            .finally(() => setBusy(false));
+        }}
+      >
+        <textarea
+          ref={ideaRef}
+          placeholder='Describe a product in plain words, e.g. "a Chrome extension that reminds me to stretch every hour"'
+        />
+        <div className="row">
+          <button type="submit" disabled={busy}>
+            {busy ? 'Launching…' : '🚀 Build it for me'}
+          </button>
+        </div>
+        {msg && <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-2)' }}>{msg}</p>}
+      </form>
     </div>
   );
 }

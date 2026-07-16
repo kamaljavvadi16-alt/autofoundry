@@ -16,6 +16,7 @@ import {
   setSetting,
   logEvent,
 } from './ledger/queries.js';
+import { launchIdea } from './pipeline/go.js';
 import { packageProject } from './pipeline/package.js';
 import { browserExtensionStage, STAGE_ORDER, type Stage } from './pipeline/stages.js';
 import { locateClaude } from './runner/locate.js';
@@ -188,30 +189,8 @@ program
   .argument('<idea>', 'the product idea, in plain words')
   .option('--name <name>', 'project name (default: derived from the idea)')
   .action((idea: string, opts) => {
-    const name =
-      (opts.name as string | undefined) ??
-      idea
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .trim()
-        .split(/\s+/)
-        .slice(0, 3)
-        .join('-');
-    const project = getOrCreateProject(name, 'browser-extension');
-    setProjectAutopilot(project.id, true);
-    for (const t of browserExtensionStage('validate', idea)) {
-      enqueueTask({
-        projectId: project.id,
-        brief: t.brief,
-        taskType: t.taskType,
-        model: t.model,
-        maxTurns: t.maxTurns,
-        validateCmd: t.validateCmd,
-      });
-    }
-    setProjectStage(project.id, 'validate');
-    logEvent('go', JSON.stringify({ project: name, idea: idea.slice(0, 120) }));
-    console.log(`🚀 "${name}" is on autopilot.`);
+    const project = launchIdea(idea, opts.name as string | undefined);
+    console.log(`🚀 "${project.name}" is on autopilot.`);
     console.log('It will move through every stage on its own and end as a zip in packages\\.');
     console.log('Problems (failed validation, budget breach) pause it in the review queue — progress never needs you.');
     console.log('Make sure the daemon is running: start-foundry.cmd or "npm run foundry -- serve -p 4321 --daemon"');

@@ -11,6 +11,7 @@ import {
   logEvent,
   setSetting,
 } from '../ledger/queries.js';
+import { launchIdea } from '../pipeline/go.js';
 import { canRunNow } from '../policy/policy.js';
 import { Daemon } from './daemon.js';
 
@@ -124,6 +125,19 @@ export function startServer(port: number, autoStartDaemon: boolean): void {
     res.json({ ok: true });
   });
 
+  app.post('/api/go', (req, res) => {
+    const idea = String(req.body?.idea ?? '').trim();
+    if (idea.length < 10) {
+      res.status(400).json({ error: 'describe the idea in at least a few words' });
+      return;
+    }
+    const name = String(req.body?.name ?? '').trim() || undefined;
+    const project = launchIdea(idea, name);
+    daemon.poke();
+    broadcast('state', buildState(daemon));
+    res.json({ name: project.name });
+  });
+
   app.post('/api/tasks', (req, res) => {
     const { brief, project, model, maxTurns, validate, type } = req.body ?? {};
     if (!brief || typeof brief !== 'string') {
@@ -199,9 +213,18 @@ export function startServer(port: number, autoStartDaemon: boolean): void {
   // Periodic refresh so gauges track the rolling windows even when idle.
   setInterval(() => broadcast('state', buildState(daemon)), 30_000).unref();
 
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`AutoFoundry dashboard: http://localhost:${port}`);
     if (autoStartDaemon) daemon.start();
+  });
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use — AutoFoundry is probably already running.`);
+      console.error(`Open http://localhost:${port} in your browser instead of starting it again.`);
+      process.exitCode = 1;
+    } else {
+      throw err;
+    }
   });
 }
 
