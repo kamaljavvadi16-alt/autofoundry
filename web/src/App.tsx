@@ -477,7 +477,9 @@ function EventLog({ events }: { events: EventRow[] }) {
           <div className="row" key={e.id}>
             <span className="t">{e.created_at.slice(5, 16)}</span>
             <span className="k">{e.kind}</span>
-            <span className="d">{e.detail}</span>
+            <span className="d" title={e.detail ?? ''}>
+              {e.detail}
+            </span>
           </div>
         ))}
       </div>
