@@ -136,6 +136,11 @@ function Meter({ value, cap, mark }: { value: number; cap: number; mark?: number
   );
 }
 
+function pct(value: number, cap: number): string {
+  if (cap <= 0) return '—';
+  return `${Math.min(999, Math.round((value / cap) * 100))}%`;
+}
+
 function Tiles({ state }: { state: State }) {
   const s = state.snapshot;
   const set = state.settings;
@@ -145,18 +150,32 @@ function Tiles({ state }: { state: State }) {
   return (
     <div className="grid-tiles">
       <div className="tile">
-        <div className="label">5h window (est)</div>
-        <div className="value">{fmtUsd(s.window5h.costUsd)}</div>
-        <div className="sub">cap {fmtUsd(set.window_cap_usd)}</div>
-        <Meter value={s.window5h.costUsd} cap={set.window_cap_usd} />
+        <div className="label">Foundry 5h budget</div>
+        <div className="value">{pct(s.window5hOwn.costUsd, set.window_cap_usd)}</div>
+        <div className="sub">
+          {fmtUsd(s.window5hOwn.costUsd)} of {fmtUsd(set.window_cap_usd)} est — your usage doesn't count here
+        </div>
+        <Meter value={s.window5hOwn.costUsd} cap={set.window_cap_usd} />
       </div>
       <div className="tile">
-        <div className="label">Weekly burn (est)</div>
-        <div className="value">{fmtUsd(s.week.costUsd)}</div>
+        <div className="label">Foundry weekly budget</div>
+        <div className="value">{pct(s.weekOwn.costUsd, weeklyBudget)}</div>
         <div className="sub">
-          orchestrator budget {fmtUsd(weeklyBudget)} · reserve {set.reserve_pct}%
+          {fmtUsd(s.weekOwn.costUsd)} of {fmtUsd(weeklyBudget)} est · reserve {set.reserve_pct}%
         </div>
-        <Meter value={s.week.costUsd} cap={set.weekly_cap_usd} mark={weeklyBudget} />
+        <Meter value={s.weekOwn.costUsd} cap={weeklyBudget} />
+      </div>
+      <div className="tile">
+        <div className="label">Plan window pressure</div>
+        <div className="value">
+          {set.observed_window_usd ? pct(s.window5h.costUsd, set.observed_window_usd) : '—'}
+        </div>
+        <div className="sub">
+          {set.observed_window_usd
+            ? `everyone's ${fmtUsd(s.window5h.costUsd)} of ~${fmtUsd(set.observed_window_usd)} observed limit`
+            : 'calibrates itself the first time the real plan limit is hit'}
+        </div>
+        {set.observed_window_usd !== null && <Meter value={s.window5h.costUsd} cap={set.observed_window_usd} />}
       </div>
       <div className="tile">
         <div className="label">Who spent it (7d)</div>
@@ -433,12 +452,12 @@ function ControlsCard({ state }: { state: State }) {
         />
         <span className="val">{reserve}%</span>
       </div>
-      <NumberSetting label="Weekly cap (est USD)" k="weekly_cap_usd" value={s.weekly_cap_usd} />
-      <NumberSetting label="5h window cap (est USD)" k="window_cap_usd" value={s.window_cap_usd} />
+      <NumberSetting label="Weekly plan size (est USD)" k="weekly_cap_usd" value={s.weekly_cap_usd} />
+      <NumberSetting label="Foundry 5h budget (est USD)" k="window_cap_usd" value={s.window_cap_usd} />
       <NumberSetting label="Activity backoff (min)" k="activity_backoff_min" value={s.activity_backoff_min} />
       <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 0 }}>
-        Caps are API-equivalent estimates of your Pro plan limits — calibrate them when you observe where the real
-        limits bite.
+        Budgets limit only what the foundry spends — your own usage never blocks it. When a session hits the real
+        plan limit, the foundry pauses, learns the window's true size, and resumes on its own.
       </p>
     </div>
   );

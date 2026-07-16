@@ -12,6 +12,7 @@ export interface State {
   snapshot: {
     generatedAt: number;
     window5h: Bucket;
+    window5hOwn: Bucket;
     week: Bucket;
     weekOwn: Bucket;
     weekUser: Bucket;
@@ -24,6 +25,7 @@ export interface State {
     weekly_cap_usd: number;
     window_cap_usd: number;
     activity_backoff_min: number;
+    observed_window_usd: number | null;
   };
   daemon: {
     running: boolean;

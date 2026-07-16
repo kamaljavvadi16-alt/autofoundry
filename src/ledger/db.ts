@@ -87,7 +87,7 @@ function migrate(db: Database.Database): void {
   seed.run('stopped', '0');
   seed.run('reserve_pct', '30');
   seed.run('weekly_cap_usd', '200');
-  seed.run('window_cap_usd', '25');
+  seed.run('window_cap_usd', '10');
   seed.run('activity_backoff_min', '30');
 }
 

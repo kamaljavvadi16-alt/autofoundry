@@ -19,6 +19,8 @@ export interface UsageSnapshot {
   generatedAt: number;
   /** Estimated API-equivalent cost across ALL local Claude Code activity. */
   window5h: Bucket;
+  /** Orchestrator-only share of the 5h window — this is what budgets meter. */
+  window5hOwn: Bucket;
   week: Bucket;
   /** Split of the weekly bucket: orchestrator workspaces vs the user's own projects. */
   weekOwn: Bucket;
@@ -58,6 +60,7 @@ export function scanUsage(now = Date.now()): UsageSnapshot {
   const snapshot: UsageSnapshot = {
     generatedAt: now,
     window5h: emptyBucket(),
+    window5hOwn: emptyBucket(),
     week: emptyBucket(),
     weekOwn: emptyBucket(),
     weekUser: emptyBucket(),
@@ -133,7 +136,10 @@ function accumulateFile(filePath: string, own: boolean, now: number, snapshot: U
 
     add(snapshot.week, tokens, cost);
     add(own ? snapshot.weekOwn : snapshot.weekUser, tokens, cost);
-    if (ts >= now - WINDOW_MS) add(snapshot.window5h, tokens, cost);
+    if (ts >= now - WINDOW_MS) {
+      add(snapshot.window5h, tokens, cost);
+      if (own) add(snapshot.window5hOwn, tokens, cost);
+    }
   }
 }
 

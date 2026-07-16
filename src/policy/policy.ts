@@ -44,22 +44,26 @@ export function canRunNow(snapshot?: UsageSnapshot): PolicyVerdict {
     }
   }
 
+  // Budgets meter ONLY the orchestrator's own spend — the user's activity can
+  // never block the foundry. Overall plan exhaustion is handled by ground
+  // truth: a real limit error triggers the cooldown above and calibrates the
+  // observed window capacity.
   const weeklyCap = num('weekly_cap_usd', 200);
   const reservePct = num('reserve_pct', 30);
   const weeklyBudget = weeklyCap * (1 - reservePct / 100);
-  if (snap.week.costUsd >= weeklyBudget) {
+  if (snap.weekOwn.costUsd >= weeklyBudget) {
     return {
       ok: false,
-      reason: `weekly reserve reached ($${snap.week.costUsd.toFixed(2)} of $${weeklyBudget.toFixed(2)} orchestrator budget; ${reservePct}% reserved)`,
+      reason: `foundry weekly budget spent ($${snap.weekOwn.costUsd.toFixed(2)} of $${weeklyBudget.toFixed(2)}; ${reservePct}% of the plan stays yours)`,
       snapshot: snap,
     };
   }
 
-  const windowCap = num('window_cap_usd', 25);
-  if (snap.window5h.costUsd >= windowCap) {
+  const windowCap = num('window_cap_usd', 10);
+  if (snap.window5hOwn.costUsd >= windowCap) {
     return {
       ok: false,
-      reason: `5h window cap reached ($${snap.window5h.costUsd.toFixed(2)} of $${windowCap.toFixed(2)})`,
+      reason: `foundry 5h budget spent ($${snap.window5hOwn.costUsd.toFixed(2)} of $${windowCap.toFixed(2)}) — resets as the window rolls`,
       snapshot: snap,
     };
   }

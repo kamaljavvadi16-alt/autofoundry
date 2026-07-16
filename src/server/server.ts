@@ -258,6 +258,7 @@ function buildState(daemon: Daemon) {
       weekly_cap_usd: Number(getSetting('weekly_cap_usd')),
       window_cap_usd: Number(getSetting('window_cap_usd')),
       activity_backoff_min: Number(getSetting('activity_backoff_min')),
+      observed_window_usd: getSetting('observed_window_usd') ? Number(getSetting('observed_window_usd')) : null,
     },
     daemon: {
       running: daemon.running,

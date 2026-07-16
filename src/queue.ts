@@ -19,6 +19,7 @@ import {
 const PLAN_LIMIT_RE = /rate.?limit|usage limit|limit (reached|exceeded|will reset)|too many requests|\b429\b|out of extra usage/i;
 const COOLDOWN_MS = 60 * 60 * 1000;
 import { canRunNow } from './policy/policy.js';
+import { scanUsage } from './policy/usage.js';
 import { advanceAutopilotProjects } from './pipeline/autopilot.js';
 import { composeBrief } from './pipeline/briefs.js';
 import { runHeadless } from './runner/run.js';
@@ -129,7 +130,14 @@ export async function runTask(task: Task, hooks: RunTaskHooks = {}): Promise<voi
       requeueTask(task.id);
       const until = Date.now() + COOLDOWN_MS;
       setSetting('cooldown_until', String(until));
-      logEvent('window_exhausted', `task ${task.id} requeued; cooling down until ${new Date(until).toLocaleString()}`);
+      // Ground truth: total est. spend at the moment the real limit bit IS the
+      // window's observed capacity — the pressure gauge calibrates from this.
+      const observed = scanUsage().window5h.costUsd;
+      if (observed > 0) setSetting('observed_window_usd', observed.toFixed(2));
+      logEvent(
+        'window_exhausted',
+        `task ${task.id} requeued; observed window capacity ~$${observed.toFixed(2)}; cooling down until ${new Date(until).toLocaleString()}`
+      );
       return;
     }
 
