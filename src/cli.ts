@@ -18,6 +18,7 @@ import {
 } from './ledger/queries.js';
 import { launchIdea } from './pipeline/go.js';
 import { packageProject } from './pipeline/package.js';
+import { refreshLimits } from './policy/limits.js';
 import { browserExtensionStage, STAGE_ORDER, type Stage } from './pipeline/stages.js';
 import { locateClaude } from './runner/locate.js';
 import { canRunNow } from './policy/policy.js';
@@ -87,8 +88,18 @@ program
 
 program
   .command('status')
-  .description('Show control flags, usage snapshot, and policy verdict')
-  .action(() => {
+  .description('Show control flags, real plan limits, usage snapshot, and policy verdict')
+  .action(async () => {
+    const limits = await refreshLimits(true);
+    if (limits) {
+      const fmt = (l: { percent: number; resetsAt: number | null } | null) =>
+        l ? `${l.percent}% used — resets ${l.resetsAt ? new Date(l.resetsAt).toLocaleString() : 'unknown'}` : 'unavailable';
+      console.log(`session (real) : ${fmt(limits.session)}`);
+      console.log(`weekly (real)  : ${fmt(limits.weekly)}`);
+      console.log(`extra usage    : ${limits.extraUsageEnabled ? 'ENABLED — disable it to guarantee $0 billing!' : 'disabled (no billing possible)'}`);
+    } else {
+      console.log('real limits    : unavailable — falling back to estimates');
+    }
     const verdict = canRunNow();
     const s = verdict.snapshot;
     const fmt = (b: typeof s.week) =>

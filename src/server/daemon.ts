@@ -5,6 +5,7 @@ import type { ChildProcess } from 'node:child_process';
 import { CLAUDE_PROJECTS_DIR, WORKSPACES_ROOT } from '../config.js';
 import { isPaused, isStopped, logEvent, nextQueuedTask, type Task } from '../ledger/queries.js';
 import { advanceAutopilotProjects } from '../pipeline/autopilot.js';
+import { refreshLimits } from '../policy/limits.js';
 import { canRunNow } from '../policy/policy.js';
 import { runTask } from '../queue.js';
 import { sumSessionUsage } from '../watcher/jsonl.js';
@@ -61,6 +62,8 @@ export class Daemon extends EventEmitter {
 
   private async loop(): Promise<void> {
     while (this.running) {
+      await refreshLimits();
+
       if (isStopped() || isPaused()) {
         this.lastVerdictReason = isStopped() ? 'emergency stop is engaged' : 'queue is paused';
         this.emit('state');

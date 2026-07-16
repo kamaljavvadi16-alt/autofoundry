@@ -12,6 +12,7 @@ import {
   setSetting,
 } from '../ledger/queries.js';
 import { launchIdea } from '../pipeline/go.js';
+import { getCachedLimits, refreshLimits } from '../policy/limits.js';
 import { canRunNow } from '../policy/policy.js';
 import { Daemon } from './daemon.js';
 
@@ -224,9 +225,11 @@ export function startServer(port: number, autoStartDaemon: boolean): void {
 
   // Periodic refresh so gauges track the rolling windows even when idle.
   setInterval(() => broadcast('state', buildState(daemon)), 30_000).unref();
+  setInterval(() => void refreshLimits(), 60_000).unref();
 
   const server = app.listen(port, () => {
     console.log(`AutoFoundry dashboard: http://localhost:${port}`);
+    void refreshLimits(true).then(() => broadcast('state', buildState(daemon)));
     if (autoStartDaemon) daemon.start();
   });
   server.on('error', (err: NodeJS.ErrnoException) => {
@@ -270,9 +273,9 @@ function buildState(daemon: Daemon) {
       weekly_cap_usd: Number(getSetting('weekly_cap_usd')),
       window_cap_usd: Number(getSetting('window_cap_usd')),
       activity_backoff_min: Number(getSetting('activity_backoff_min')),
-      observed_window_usd: getSetting('observed_window_usd') ? Number(getSetting('observed_window_usd')) : null,
       boost_until: Number(getSetting('boost_until') ?? 0),
     },
+    limits: getCachedLimits(),
     daemon: {
       running: daemon.running,
       idleReason: daemon.lastVerdictReason,

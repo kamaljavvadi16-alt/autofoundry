@@ -25,9 +25,14 @@ export interface State {
     weekly_cap_usd: number;
     window_cap_usd: number;
     activity_backoff_min: number;
-    observed_window_usd: number | null;
     boost_until: number;
   };
+  limits: {
+    fetchedAt: number;
+    session: { percent: number; resetsAt: number | null } | null;
+    weekly: { percent: number; resetsAt: number | null } | null;
+    extraUsageEnabled: boolean | null;
+  } | null;
   daemon: {
     running: boolean;
     idleReason: string | null;

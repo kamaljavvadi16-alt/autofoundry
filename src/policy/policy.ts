@@ -1,5 +1,10 @@
-import { getSetting, isPaused, isStopped } from '../ledger/queries.js';
+import { getSetting, isPaused, isStopped, setSetting } from '../ledger/queries.js';
+import { getCachedLimits } from './limits.js';
 import { scanUsage, type UsageSnapshot } from './usage.js';
+
+function fmtReset(resetsAt: number | null): string {
+  return resetsAt ? new Date(resetsAt).toLocaleString() : 'unknown';
+}
 
 export interface PolicyVerdict {
   ok: boolean;
@@ -25,9 +30,38 @@ export function canRunNow(snapshot?: UsageSnapshot): PolicyVerdict {
 
   const cooldown = Number(getSetting('cooldown_until') ?? 0);
   if (cooldown > snap.generatedAt) {
+    // Self-heal: if the account says the session window is actually fine, the
+    // cooldown is stale — clear it instead of waiting out a wrong timer.
+    const rl = getCachedLimits();
+    if (rl?.session && rl.session.percent < 90) {
+      setSetting('cooldown_until', '0');
+    } else {
+      return {
+        ok: false,
+        reason: `plan limit hit — cooling down until ${new Date(cooldown).toLocaleTimeString()}`,
+        snapshot: snap,
+      };
+    }
+  }
+
+  // Real plan limits (read from the Claude account) take precedence over any
+  // estimate. A limit whose reset time has passed no longer blocks, even if
+  // the cached percent is stale.
+  const reservePct = num('reserve_pct', 30);
+  const limits = getCachedLimits();
+  const notYetReset = (l: { resetsAt: number | null }) => l.resetsAt === null || l.resetsAt > snap.generatedAt;
+  if (limits?.session && limits.session.percent >= 95 && notYetReset(limits.session)) {
     return {
       ok: false,
-      reason: `plan limit hit — cooling down until ${new Date(cooldown).toLocaleTimeString()}`,
+      reason: `plan session limit at ${limits.session.percent}% — resets ${fmtReset(limits.session.resetsAt)}`,
+      snapshot: snap,
+    };
+  }
+  const weeklyStopPct = 100 - reservePct;
+  if (limits?.weekly && limits.weekly.percent >= weeklyStopPct && notYetReset(limits.weekly)) {
+    return {
+      ok: false,
+      reason: `weekly plan at ${limits.weekly.percent}% — foundry stops at ${weeklyStopPct}% to keep your ${reservePct}% reserve (resets ${fmtReset(limits.weekly.resetsAt)})`,
       snapshot: snap,
     };
   }
@@ -48,11 +82,8 @@ export function canRunNow(snapshot?: UsageSnapshot): PolicyVerdict {
   }
 
   // Budgets meter ONLY the orchestrator's own spend — the user's activity can
-  // never block the foundry. Overall plan exhaustion is handled by ground
-  // truth: a real limit error triggers the cooldown above and calibrates the
-  // observed window capacity.
+  // never block the foundry via these.
   const weeklyCap = num('weekly_cap_usd', 200);
-  const reservePct = num('reserve_pct', 30);
   const weeklyBudget = weeklyCap * (1 - reservePct / 100);
   if (snap.weekOwn.costUsd >= weeklyBudget) {
     return {

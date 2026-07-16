@@ -166,6 +166,21 @@ function pct(value: number, cap: number): string {
   return `${Math.min(999, Math.round((value / cap) * 100))}%`;
 }
 
+function fmtResetTime(resetsAt: number | null): string {
+  if (!resetsAt) return 'unknown';
+  const d = new Date(resetsAt);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return sameDay ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+/** Event timestamps are stored in UTC by SQLite — convert for display. */
+function fmtLogTime(utc: string): string {
+  const d = new Date(utc.replace(' ', 'T') + 'Z');
+  if (Number.isNaN(d.getTime())) return utc.slice(5, 16);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function Tiles({ state }: { state: State }) {
   const s = state.snapshot;
   const set = state.settings;
@@ -175,32 +190,33 @@ function Tiles({ state }: { state: State }) {
   return (
     <div className="grid-tiles">
       <div className="tile">
-        <div className="label">Foundry 5h budget</div>
+        <div className="label">Session limit (live)</div>
+        <div className="value">{state.limits?.session ? `${state.limits.session.percent}%` : '—'}</div>
+        <div className="sub">
+          {state.limits?.session
+            ? `from your Claude account · resets ${fmtResetTime(state.limits.session.resetsAt)}`
+            : 'reading from your Claude account…'}
+        </div>
+        {state.limits?.session && <Meter value={state.limits.session.percent} cap={100} />}
+      </div>
+      <div className="tile">
+        <div className="label">Weekly limit (live)</div>
+        <div className="value">{state.limits?.weekly ? `${state.limits.weekly.percent}%` : '—'}</div>
+        <div className="sub">
+          {state.limits?.weekly
+            ? `foundry stops at ${100 - set.reserve_pct}% · resets ${fmtResetTime(state.limits.weekly.resetsAt)}`
+            : 'reading from your Claude account…'}
+        </div>
+        {state.limits?.weekly && <Meter value={state.limits.weekly.percent} cap={100} mark={100 - set.reserve_pct} />}
+      </div>
+      <div className="tile">
+        <div className="label">Foundry own spend (est)</div>
         <div className="value">{pct(s.window5hOwn.costUsd, set.window_cap_usd)}</div>
         <div className="sub">
-          {fmtUsd(s.window5hOwn.costUsd)} of {fmtUsd(set.window_cap_usd)} est — your usage doesn't count here
+          5h: {fmtUsd(s.window5hOwn.costUsd)} of {fmtUsd(set.window_cap_usd)} · week: {fmtUsd(s.weekOwn.costUsd)} of{' '}
+          {fmtUsd(weeklyBudget)}
         </div>
         <Meter value={s.window5hOwn.costUsd} cap={set.window_cap_usd} />
-      </div>
-      <div className="tile">
-        <div className="label">Foundry weekly budget</div>
-        <div className="value">{pct(s.weekOwn.costUsd, weeklyBudget)}</div>
-        <div className="sub">
-          {fmtUsd(s.weekOwn.costUsd)} of {fmtUsd(weeklyBudget)} est · reserve {set.reserve_pct}%
-        </div>
-        <Meter value={s.weekOwn.costUsd} cap={weeklyBudget} />
-      </div>
-      <div className="tile">
-        <div className="label">Plan window pressure</div>
-        <div className="value">
-          {set.observed_window_usd ? pct(s.window5h.costUsd, set.observed_window_usd) : '—'}
-        </div>
-        <div className="sub">
-          {set.observed_window_usd
-            ? `everyone's ${fmtUsd(s.window5h.costUsd)} of ~${fmtUsd(set.observed_window_usd)} observed limit`
-            : 'calibrates itself the first time the real plan limit is hit'}
-        </div>
-        {set.observed_window_usd !== null && <Meter value={s.window5h.costUsd} cap={set.observed_window_usd} />}
       </div>
       <div className="tile">
         <div className="label">Who spent it (7d)</div>
@@ -566,7 +582,7 @@ function EventLog({ events }: { events: EventRow[] }) {
       <div className="log">
         {events.map((e) => (
           <div className="row" key={e.id}>
-            <span className="t">{e.created_at.slice(5, 16)}</span>
+            <span className="t">{fmtLogTime(e.created_at)}</span>
             <span className="k">{e.kind}</span>
             <span className="d" title={e.detail ?? ''}>
               {e.detail}
