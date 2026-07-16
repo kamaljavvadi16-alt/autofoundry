@@ -335,7 +335,7 @@ function GoForm() {
 }
 
 function ReviewQueue({ tasks }: { tasks: TaskRow[] }) {
-  const review = tasks.filter((t) => t.status === 'review');
+  const review = tasks.filter((t) => t.status === 'review' || t.status === 'failed');
   if (review.length === 0) return null;
   return (
     <div className="card" style={{ borderColor: 'var(--serious)' }}>
@@ -351,9 +351,13 @@ function ReviewQueue({ tasks }: { tasks: TaskRow[] }) {
               </td>
               <td className="num">{fmtUsd(t.cost_usd)}</td>
               <td style={{ whiteSpace: 'nowrap' }}>
-                <button className="small" onClick={() => void post(`/api/tasks/${t.id}/approve`)}>
-                  Approve
-                </button>{' '}
+                {t.status === 'review' && (
+                  <>
+                    <button className="small" onClick={() => void post(`/api/tasks/${t.id}/approve`)}>
+                      Approve
+                    </button>{' '}
+                  </>
+                )}
                 <button className="small" onClick={() => void post(`/api/tasks/${t.id}/requeue`)}>
                   Retry
                 </button>{' '}

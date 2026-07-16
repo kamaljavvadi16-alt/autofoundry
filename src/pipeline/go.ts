@@ -29,15 +29,21 @@ export function launchIdea(idea: string, name?: string): Project {
   return project;
 }
 
+const STOPWORDS = new Set([
+  'i', 'a', 'an', 'the', 'want', 'need', 'to', 'for', 'that', 'this', 'which', 'with',
+  'make', 'build', 'create', 'chrome', 'browser', 'extension', 'app', 'my', 'me', 'my',
+  'please', 'of', 'and', 'in', 'on', 'it', 'is', 'be', 'can', 'will', 'would', 'like',
+]);
+
 function slugFromIdea(idea: string): string {
-  const slug = idea
+  const words = idea
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
     .trim()
     .split(/\s+/)
-    .slice(0, 3)
-    .join('-');
-  return slug || 'idea';
+    .filter((w) => w.length > 1 && !STOPWORDS.has(w))
+    .slice(0, 3);
+  return words.join('-') || 'idea';
 }
 
 function uniqueName(base: string): string {

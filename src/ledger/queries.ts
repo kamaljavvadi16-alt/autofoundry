@@ -142,6 +142,16 @@ export function markTaskReview(id: number, note: string): void {
     .run(note, id);
 }
 
+/** Retry with a bigger turn budget: same model, attempt counted. */
+export function retryWithMoreTurns(id: number, maxTurns: number): void {
+  getDb()
+    .prepare(
+      `UPDATE tasks SET status = 'queued', max_turns = ?, attempts = attempts + 1,
+         started_at = NULL, finished_at = NULL WHERE id = ?`
+    )
+    .run(maxTurns, id);
+}
+
 /** Put a task back in the queue untouched (no attempt bump, no model change). */
 export function requeueTask(id: number): void {
   getDb()
@@ -151,7 +161,7 @@ export function requeueTask(id: number): void {
 
 export function cancelTask(id: number): boolean {
   const info = getDb()
-    .prepare("UPDATE tasks SET status = 'cancelled', finished_at = datetime('now') WHERE id = ? AND status IN ('queued', 'review')")
+    .prepare("UPDATE tasks SET status = 'cancelled', finished_at = datetime('now') WHERE id = ? AND status IN ('queued', 'review', 'failed')")
     .run(id);
   return info.changes > 0;
 }

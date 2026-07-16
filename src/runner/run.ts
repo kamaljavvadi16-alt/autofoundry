@@ -15,6 +15,7 @@ export interface HeadlessResult {
   timedOut: boolean;
   sessionId?: string;
   resultText?: string;
+  subtype?: string;
   isError: boolean;
   numTurns?: number;
   durationMs?: number;
@@ -116,6 +117,7 @@ export function runHeadless(opts: RunOptions): Promise<HeadlessResult> {
         timedOut,
         sessionId: typeof parsed.session_id === 'string' ? parsed.session_id : undefined,
         resultText: typeof parsed.result === 'string' ? parsed.result : undefined,
+        subtype: typeof parsed.subtype === 'string' ? parsed.subtype : undefined,
         isError: parsed.is_error === true,
         numTurns: typeof parsed.num_turns === 'number' ? parsed.num_turns : undefined,
         durationMs: typeof parsed.duration_ms === 'number' ? parsed.duration_ms : undefined,

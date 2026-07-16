@@ -12,6 +12,7 @@ import {
   markTaskRunning,
   nextQueuedTask,
   requeueTask,
+  retryWithMoreTurns,
   setSetting,
   type Task,
 } from './ledger/queries.js';
@@ -126,7 +127,23 @@ export async function runTask(task: Task, hooks: RunTaskHooks = {}): Promise<voi
   }
 
   if (!res.ok) {
-    const error = res.timedOut ? 'session timed out' : res.stderr.slice(0, 2000);
+    // Turn exhaustion isn't a capability failure — the session simply needed
+    // more room. Retry same model with a bigger budget before anything else.
+    if (res.subtype === 'error_max_turns') {
+      if (task.attempts < 2) {
+        const newTurns = Math.ceil(task.max_turns * 1.6);
+        retryWithMoreTurns(task.id, newTurns);
+        logEvent('turns_extended', JSON.stringify({ taskId: task.id, from: task.max_turns, to: newTurns }));
+        return;
+      }
+      markTaskReview(task.id, `ran out of turns repeatedly (last budget ${task.max_turns})`);
+      logEvent('needs_review', JSON.stringify({ taskId: task.id, why: 'max turns twice' }));
+      return;
+    }
+
+    const error = res.timedOut
+      ? 'session timed out'
+      : res.stderr.slice(0, 2000) || `session exited ${res.exitCode}${res.subtype ? ` (${res.subtype})` : ''}`;
 
     // A plan-limit hit is not the task's fault: requeue it untouched and cool
     // down until the usage window resets, then the daemon resumes on its own.
@@ -166,11 +183,12 @@ export async function runTask(task: Task, hooks: RunTaskHooks = {}): Promise<voi
 
 function handleFailure(task: Task, note: string): void {
   const next = nextModel(task.model);
-  if (next) {
+  if (next && task.attempts < 3) {
     escalateTask(task.id, next, note);
     logEvent('escalated', JSON.stringify({ taskId: task.id, from: task.model, to: next }));
     return;
   }
-  markTaskFinished(task.id, 'failed', undefined, note);
-  logEvent('task_failed', JSON.stringify({ taskId: task.id, note: note.slice(0, 300) }));
+  // Ladder exhausted: this needs a human, so it must land in the review queue.
+  markTaskReview(task.id, note);
+  logEvent('needs_review', JSON.stringify({ taskId: task.id, note: note.slice(0, 300) }));
 }

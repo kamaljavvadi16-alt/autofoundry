@@ -15,8 +15,9 @@ const FILE_EXISTS = (files: string[]) =>
 const MANIFEST_PARSES = 'node -e "JSON.parse(require(\'fs\').readFileSync(\'manifest.json\',\'utf8\'))"';
 
 /**
- * Task templates for the browser-extension lane. Each stage ends at a human
- * gate: the user reviews the workspace before advancing to the next stage.
+ * Task templates for the browser-extension lane. Turn budgets are generous:
+ * a session that runs out of turns is retried automatically with more, but
+ * every retry costs tokens, so err high here.
  */
 export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
   switch (stage) {
@@ -25,11 +26,11 @@ export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
         {
           taskType: 'raw',
           model: 'sonnet',
-          maxTurns: 8,
+          maxTurns: 12,
           brief: [
-            'You are planning a Chrome browser extension. Write a file named spec.md in the current directory — nothing else.',
+            'You are planning a Chrome browser extension. Write a file named spec.md in the current directory - nothing else.',
             '',
-            `## The idea`,
+            '## The idea',
             idea,
             '',
             '## spec.md must contain (max 120 lines total)',
@@ -51,15 +52,15 @@ export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
         {
           taskType: 'dev',
           model: 'haiku',
-          maxTurns: 20,
+          maxTurns: 28,
           brief:
-            'Per spec.md: create the Chrome extension skeleton — manifest.json (Manifest V3, minimal permissions), directory layout, and empty-but-valid entry files it references. Vanilla JS only, no build step.',
+            'Per spec.md: create the Chrome extension skeleton - manifest.json (Manifest V3, minimal permissions), directory layout, and empty-but-valid entry files it references. Vanilla JS only, no build step.',
           validateCmd: MANIFEST_PARSES,
         },
         {
           taskType: 'dev',
           model: 'haiku',
-          maxTurns: 25,
+          maxTurns: 30,
           brief:
             'Per spec.md: implement the popup UI (popup.html/popup.css/popup.js) covering the MVP features that live in the popup. Use chrome.storage.sync for persistence. Vanilla JS, clean minimal styling.',
           validateCmd: FILE_EXISTS(['popup.html', 'popup.js']),
@@ -67,7 +68,7 @@ export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
         {
           taskType: 'dev',
           model: 'haiku',
-          maxTurns: 25,
+          maxTurns: 30,
           brief:
             'Per spec.md: implement the content-script functionality for the MVP and register it in manifest.json. Handle the target sites listed in spec.md. Fail gracefully on unknown pages.',
           validateCmd: MANIFEST_PARSES,
@@ -79,7 +80,7 @@ export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
         {
           taskType: 'dev',
           model: 'haiku',
-          maxTurns: 25,
+          maxTurns: 40,
           brief:
             'Polish pass per spec.md: add an options page (register in manifest), input validation and error handling throughout, and empty-state UX in the popup. Keep bundle dependency-free.',
           validateCmd: MANIFEST_PARSES,
@@ -87,7 +88,7 @@ export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
         {
           taskType: 'dev',
           model: 'haiku',
-          maxTurns: 20,
+          maxTurns: 28,
           brief:
             'Write README.md (install-unpacked instructions, feature list, screenshots placeholder) and listing.md (final store listing copy per spec.md, plus a checklist of assets still needed e.g. PNG icons 16/48/128 and screenshots). Create simple SVG icon drafts icon16.svg/icon48.svg/icon128.svg.',
           validateCmd: FILE_EXISTS(['README.md', 'listing.md']),
@@ -99,7 +100,7 @@ export function browserExtensionStage(stage: Stage, idea: string): StageTask[] {
         {
           taskType: 'dev',
           model: 'sonnet',
-          maxTurns: 15,
+          maxTurns: 30,
           brief:
             'Final review pass: read spec.md and every file in the workspace. Fix anything broken or inconsistent (manifest references, dead code, spec mismatches). Then update progress.md with a ship-readiness verdict: what works, what still needs a human (icons, screenshots, store account, payment setup).',
           validateCmd: MANIFEST_PARSES,
