@@ -30,9 +30,9 @@ body {
 }
 
 #root {
-  max-width: 1280px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 16px 20px 48px;
+  padding: 16px 18px 48px;
 }
 
 h1 {
@@ -142,8 +142,8 @@ button.small {
 
 .grid-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
   margin-bottom: 14px;
 }
 
@@ -225,6 +225,7 @@ button.small {
   border-radius: 8px;
   padding: 14px;
   margin-bottom: 14px;
+  overflow-x: auto;
 }
 
 table {

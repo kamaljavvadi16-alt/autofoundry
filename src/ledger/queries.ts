@@ -11,6 +11,7 @@ export interface Project {
   workspace: string;
   token_budget: number | null;
   revenue_cents: number;
+  autopilot: number;
   created_at: string;
 }
 
@@ -72,6 +73,27 @@ export function getProjectByName(name: string): Project | undefined {
 
 export function setProjectStage(id: number, stage: string): void {
   getDb().prepare('UPDATE projects SET stage = ? WHERE id = ?').run(stage, id);
+}
+
+export function setProjectAutopilot(id: number, on: boolean): void {
+  getDb().prepare('UPDATE projects SET autopilot = ? WHERE id = ?').run(on ? 1 : 0, id);
+}
+
+export function setProjectStatus(id: number, status: string): void {
+  getDb().prepare('UPDATE projects SET status = ? WHERE id = ?').run(status, id);
+}
+
+export function listActiveAutopilotProjects(): Project[] {
+  return getDb()
+    .prepare("SELECT * FROM projects WHERE autopilot = 1 AND status = 'active'")
+    .all() as Project[];
+}
+
+export function projectTaskCounts(projectId: number): Record<string, number> {
+  const rows = getDb()
+    .prepare('SELECT status, COUNT(*) AS n FROM tasks WHERE project_id = ? GROUP BY status')
+    .all(projectId) as Array<{ status: string; n: number }>;
+  return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
 
 export function enqueueTask(opts: {

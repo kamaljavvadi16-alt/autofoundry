@@ -78,6 +78,7 @@ function migrate(db: Database.Database): void {
 
   ensureColumn(db, 'tasks', 'attempts', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'tasks', 'validate_cmd', 'TEXT');
+  ensureColumn(db, 'projects', 'autopilot', 'INTEGER NOT NULL DEFAULT 0');
 
   const seed = db.prepare(
     'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'

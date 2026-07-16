@@ -47,10 +47,25 @@ JSONL session logs. AutoFoundry parses these for **all** projects on the machine
 knows exactly what the orchestrator spent *and* what you spent — no instrumentation, no estimates
 for its own sessions (the CLI reports exact API-equivalent cost), calibrated estimates for yours.
 
+## Fire-and-forget mode
+
+The one-command workflow — give it an idea and walk away:
+
+```powershell
+npm run foundry -- go "an extension that does X for people who Y"
+```
+
+The project goes on **autopilot**: it plans a spec, builds the prototype, polishes, does a final
+review pass, and lands as a ready-to-upload zip in `packages\`. Stages advance automatically only
+while everything is green — any failed validation, budget breach, or exhausted escalation freezes
+the project in the review queue until a human clears it. *Problems always wait; progress never
+does.* Double-click `start-foundry.cmd` to launch the dashboard + daemon together.
+
 ## The pipeline
 
 Projects move through **validate → prototype → polish → ship**, each stage a set of templated
-tasks with per-task validation commands, and a **human gate between stages**:
+tasks with per-task validation commands. With autopilot off, there's a **human gate between
+stages** (toggle per project: `npm run foundry -- autopilot <name> on|off`):
 
 ```powershell
 npm run foundry -- stage myext validate --idea "..."   # 1 planning task → spec.md

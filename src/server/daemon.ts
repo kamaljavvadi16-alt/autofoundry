@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { ChildProcess } from 'node:child_process';
 import { CLAUDE_PROJECTS_DIR, WORKSPACES_ROOT } from '../config.js';
 import { isPaused, isStopped, logEvent, nextQueuedTask, type Task } from '../ledger/queries.js';
+import { advanceAutopilotProjects } from '../pipeline/autopilot.js';
 import { canRunNow } from '../policy/policy.js';
 import { runTask } from '../queue.js';
 import { sumSessionUsage } from '../watcher/jsonl.js';
@@ -74,6 +75,8 @@ export class Daemon extends EventEmitter {
         await this.sleep(BLOCKED_POLL_MS);
         continue;
       }
+
+      advanceAutopilotProjects();
 
       const task = nextQueuedTask();
       if (!task) {

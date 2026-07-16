@@ -19,6 +19,7 @@ import {
 const PLAN_LIMIT_RE = /rate.?limit|usage limit|limit (reached|exceeded|will reset)|too many requests|\b429\b|out of extra usage/i;
 const COOLDOWN_MS = 60 * 60 * 1000;
 import { canRunNow } from './policy/policy.js';
+import { advanceAutopilotProjects } from './pipeline/autopilot.js';
 import { composeBrief } from './pipeline/briefs.js';
 import { runHeadless } from './runner/run.js';
 import { runLocalCheck } from './verify/local.js';
@@ -42,6 +43,8 @@ export async function processQueue(opts: QueueOptions = {}): Promise<QueueOutcom
     // Pause and emergency stop are absolute — force never bypasses them.
     if (isStopped()) return { processed, reason: 'emergency stop is engaged' };
     if (isPaused()) return { processed, reason: 'queue is paused' };
+
+    advanceAutopilotProjects();
 
     if (!opts.force) {
       const verdict = canRunNow();

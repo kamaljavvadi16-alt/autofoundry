@@ -1,7 +1,5 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { Command } from 'commander';
 import { ROOT, WORKSPACES_ROOT, DEFAULT_MODEL, DEFAULT_MAX_TURNS } from './config.js';
 import { getDb } from './ledger/db.js';
@@ -13,10 +11,12 @@ import {
   getSetting,
   getTask,
   sessionsForTask,
+  setProjectAutopilot,
   setProjectStage,
   setSetting,
   logEvent,
 } from './ledger/queries.js';
+import { packageProject } from './pipeline/package.js';
 import { browserExtensionStage, STAGE_ORDER, type Stage } from './pipeline/stages.js';
 import { locateClaude } from './runner/locate.js';
 import { canRunNow } from './policy/policy.js';
@@ -183,6 +183,54 @@ program
   });
 
 program
+  .command('go')
+  .description('Fire-and-forget: give an extension idea, walk away. Autopilots validate→prototype→polish→ship→zip.')
+  .argument('<idea>', 'the product idea, in plain words')
+  .option('--name <name>', 'project name (default: derived from the idea)')
+  .action((idea: string, opts) => {
+    const name =
+      (opts.name as string | undefined) ??
+      idea
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .trim()
+        .split(/\s+/)
+        .slice(0, 3)
+        .join('-');
+    const project = getOrCreateProject(name, 'browser-extension');
+    setProjectAutopilot(project.id, true);
+    for (const t of browserExtensionStage('validate', idea)) {
+      enqueueTask({
+        projectId: project.id,
+        brief: t.brief,
+        taskType: t.taskType,
+        model: t.model,
+        maxTurns: t.maxTurns,
+        validateCmd: t.validateCmd,
+      });
+    }
+    setProjectStage(project.id, 'validate');
+    logEvent('go', JSON.stringify({ project: name, idea: idea.slice(0, 120) }));
+    console.log(`🚀 "${name}" is on autopilot.`);
+    console.log('It will move through every stage on its own and end as a zip in packages\\.');
+    console.log('Problems (failed validation, budget breach) pause it in the review queue — progress never needs you.');
+    console.log('Make sure the daemon is running: start-foundry.cmd or "npm run foundry -- serve -p 4321 --daemon"');
+  });
+
+program
+  .command('autopilot')
+  .description('Turn fire-and-forget mode on/off for an existing project')
+  .argument('<project>')
+  .argument('<mode>', 'on | off')
+  .action((projectName: string, mode: string) => {
+    const project = getProjectByName(projectName);
+    if (!project) throw new Error(`project "${projectName}" not found`);
+    setProjectAutopilot(project.id, mode === 'on');
+    logEvent('autopilot_toggled', `${projectName} ${mode}`);
+    console.log(`autopilot ${mode} for "${projectName}"`);
+  });
+
+program
   .command('stage')
   .description('Enqueue all tasks for a pipeline stage of a project (human gate between stages)')
   .argument('<project>', 'project name')
@@ -220,22 +268,7 @@ program
   .action((projectName: string) => {
     const project = getProjectByName(projectName);
     if (!project) throw new Error(`project "${projectName}" not found`);
-    const outDir = path.join(WORKSPACES_ROOT, '..', 'packages');
-    fs.mkdirSync(outDir, { recursive: true });
-    const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'foundry-pkg-'));
-    fs.cpSync(project.workspace, staging, {
-      recursive: true,
-      filter: (src) => !/(^|[\\/])(progress\.md|handoff\.md|.*\.zip)$/i.test(src),
-    });
-    const zip = path.join(outDir, `${project.name}-${new Date().toISOString().slice(0, 10)}.zip`);
-    execFileSync('powershell.exe', [
-      '-NoProfile',
-      '-Command',
-      `Compress-Archive -Path '${staging}\\*' -DestinationPath '${zip}' -Force`,
-    ]);
-    fs.rmSync(staging, { recursive: true, force: true });
-    logEvent('packaged', JSON.stringify({ project: project.name, zip }));
-    console.log(`packaged: ${zip}`);
+    console.log(`packaged: ${packageProject(project)}`);
   });
 
 program
