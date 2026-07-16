@@ -1,0 +1,9 @@
+node_modules/
+dist/
+web/node_modules/
+web/dist/
+foundry.db
+foundry.db-journal
+foundry.db-wal
+foundry.db-shm
+*.log
